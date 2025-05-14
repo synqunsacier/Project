@@ -1,1 +1,478 @@
+from google.colab import files
+uploaded = files.upload()
+
+
+import pandas as pd
+df = pd.read_csv("Movies.csv", sep=',')
+df.head()
+
+
+# Shape of the dataset
+print("Shape:", df.shape)
+# Column names
+print("Columns:", df.columns.tolist())
+# Data types and non-null values
+df.info()
+# Summary statistics for numeric features
+df.describe()
+
+
+# Check for missing values
+df.isnull().sum()
+
+
+# Check for duplicates
+print("Duplicate rows:", df.duplicated().sum())
+
+
+# Basic overview of the dataset
+df_info = df.info()
+df_head = df.head()
+
+
+# Checking missing values, duplicates, and summary statistics to find outliers
+missing_values = df.isnull().sum()
+duplicates = df.duplicated().sum()
+summary_stats = df.describe()
+
+missing_values, duplicates, summary_stats, df_head
+
+
+import ast
+from sklearn.preprocessing import MultiLabelBinarizer, MinMaxScaler, LabelEncoder
+
+
+# Step 1: Select a small sample (first 2 rows) for snapshot
+sample_df = df[['title', 'popularity', 'vote_average', 'genre_ids', 'original_language']].iloc[:2].copy()
+
+
+# Step 2: BEFORE Snapshot
+before_snapshot = sample_df.copy()
+print("📸 BEFORE PREPROCESSING")
+display(before_snapshot)
+
+
+
+
+# Step 3: Convert genre_ids string to list
+sample_df['genre_ids'] = sample_df['genre_ids'].apply(ast.literal_eval)
+
+
+# Step 4: One-hot encode genre_ids
+mlb = MultiLabelBinarizer()
+genre_encoded = pd.DataFrame(mlb.fit_transform(sample_df['genre_ids']),
+                             columns=[f'genre_{g}' for g in mlb.classes_])
+
+
+# Step 5: Label encode 'original_language'
+le = LabelEncoder()
+sample_df['original_language'] = le.fit_transform(sample_df['original_language'])
+
+
+# Step 6: Normalize 'popularity' and 'vote_average' using Min-Max Scaling
+scaler = MinMaxScaler()
+scaled = scaler.fit_transform(sample_df[['popularity', 'vote_average']])
+scaled_df = pd.DataFrame(scaled, columns=['popularity', 'vote_average'])
+
+
+# Step 7: Combine all columns into the AFTER snapshot
+after_snapshot = pd.concat([sample_df[['title']], scaled_df, genre_encoded, sample_df[['original_language']]], axis=1)
+
+
+print("✅ AFTER PREPROCESSING")
+display(after_snapshot)
+
+
+#Visualize a Few Features
+
+
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+
+# Set style
+sns.set(style="whitegrid")
+plt.rcParams["figure.figsize"] = (10, 6)
+
+
+# Sample data for EDA
+eda_df = df[['popularity', 'vote_average', 'vote_count']].copy()
+
+
+# Drop NaN values for cleaner visualization
+eda_df = eda_df.dropna()
+
+
+# Create visualizations
+fig, axs = plt.subplots(2, 2, figsize=(16, 12))
+
+
+# Histogram - Popularity
+sns.histplot(eda_df['popularity'], bins=50, ax=axs[0, 0], kde=True, color='skyblue')
+axs[0, 0].set_title('Distribution of Popularity')
+
+
+# Boxplot - Vote Average
+sns.boxplot(x=eda_df['vote_average'], ax=axs[0, 1], color='lightgreen')
+axs[0, 1].set_title('Boxplot of Vote Average')
+
+
+# Heatmap - Correlation
+corr = eda_df.corr()
+sns.heatmap(corr, annot=True, cmap='coolwarm', ax=axs[1, 0])
+axs[1, 0].set_title('Correlation Heatmap')
+
+
+# Scatterplot - Popularity vs Vote Count
+sns.scatterplot(data=eda_df, x='popularity', y='vote_count', ax=axs[1, 1], alpha=0.6)
+axs[1, 1].set_title('Popularity vs Vote Count')
+
+
+plt.tight_layout()
+plt.show()
+
+
+# Summarizing key insights
+insights = {
+    "Popularity Distribution": "Right-skewed. Most movies have low popularity, few are extremely popular.",
+    "Vote Average Boxplot": "Most ratings fall between 5 and 7. Outliers exist with both low and high ratings.",
+    "Correlation Heatmap": "Popularity has moderate correlation with vote_count, but weak with vote_average.",
+    "Scatterplot": "Popular movies generally receive higher vote counts, forming a rising trend."
+}
+
+
+insights
+
+
+
+# Show original data (before transformation)
+df[['vote_average', 'vote_count', 'popularity', 'release_date', 'original_language']].head()
+
+
+# Copy relevant columns
+fe_df = df[['vote_average', 'vote_count', 'popularity', 'release_date', 'original_language']].copy()
+
+
+# Drop rows with missing release_date or runtime
+fe_df = fe_df.dropna(subset=['release_date'])
+
+
+# New Features
+fe_df['release_year'] = pd.to_datetime(fe_df['release_date'], errors='coerce').dt.year
+fe_df['rating_score'] = fe_df['vote_average'] * fe_df['vote_count']
+fe_df['popularity_bucket'] = pd.cut(fe_df['popularity'],
+                                    bins=[-1, 10, 50, 100, 500, 10000],
+                                    labels=['Very Low', 'Low', 'Medium', 'High', 'Very High'])
+
+
+
+from sklearn.preprocessing import MinMaxScaler, LabelEncoder
+
+
+# Select features
+selected_features = fe_df[['popularity', 'rating_score','release_year', 'original_language']]
+
+
+# Scale numerical features
+scaler = MinMaxScaler()
+selected_features[['popularity', 'rating_score']] = scaler.fit_transform(
+    selected_features[['popularity', 'rating_score']]
+)
+
+
+# Encode categorical feature
+le = LabelEncoder()
+selected_features['original_language'] = le.fit_transform(selected_features['original_language'])
+
+
+
+# Show transformed data
+selected_features.head()
+
+
+# Identify Target and Features for the current dataset
+# Let's choose 'vote_average' as the target for a sample ML task (like regression)
+
+
+target = 'vote_average'
+features = df.columns.drop(target)
+
+
+# Display features
+features
+import pandas as pd
+
+
+
+# Load the dataset
+df = pd.read_csv("Movies.csv")
+
+
+# Choose a target column for your analysis (example: 'vote_average')
+target = 'vote_average'
+
+
+# Get all other columns as features
+features = df.columns.drop(target)
+
+
+# Print the features
+print("Features:", features)
+
+
+
+# Identify categorical columns in your dataset
+categorical_cols = df.select_dtypes(include=['object']).columns
+categorical_cols.tolist()
+
+
+#Convert Categorical Columns to Numerical
+
+
+import pandas as pd
+
+
+# Load your dataset
+df = pd.read_csv("Movies.csv")
+
+
+# Apply one-hot encoding (this will convert all categorical columns to numerical)
+df_encoded = pd.get_dummies(df, drop_first=True)
+
+
+# View the first few rows
+print(df_encoded.head())
+
+
+#Feature Scaling
+from sklearn.preprocessing import StandardScaler
+
+
+# Drop unnecessary columns
+df_cleaned = df.drop(columns=['Unnamed: 0', 'id', 'title', 'release_date', 'genre_ids'])
+
+
+# One-hot encode the 'original_language' column
+df_encoded = pd.get_dummies(df_cleaned, columns=['original_language'], drop_first=True)
+
+
+# Set target and features
+target_column = 'vote_average'
+X = df_encoded.drop(columns=[target_column])
+y = df_encoded[target_column]
+
+
+# Apply StandardScaler
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+
+
+# Convert to DataFrame for visualization
+X_scaled_df = pd.DataFrame(X_scaled, columns=X.columns)
+
+
+# Show the first few rows of the scaled data and target
+X_scaled_df.head(), y.head()
+
+
+#Train-Test Split
+
+
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error, r2_score
+
+
+# Train-test split
+X_train, X_test, y_train, y_test = train_test_split(
+    X_scaled, y, test_size=0.2, random_state=42
+)
+
+
+# Fit a Linear Regression model
+model = LinearRegression()
+model.fit(X_train, y_train)
+
+
+# Predict on test set
+y_pred = model.predict(X_test)
+
+
+# Evaluate the model
+mse = mean_squared_error(y_test, y_pred)
+r2 = r2_score(y_test, y_pred)
+
+
+mse, r2
+
+
+#Model Building
+
+
+from sklearn.linear_model import LinearRegression
+
+
+# Build the Linear Regression model
+model = LinearRegression()
+
+
+# Train the model on the training data
+model.fit(X_train, y_train)
+
+
+# Predict on the test set
+y_pred = model.predict(X_test)
+
+
+#Evaluation
+
+
+from sklearn.metrics import mean_squared_error, r2_score
+
+
+# Evaluate the model
+mse = mean_squared_error(y_test, y_pred)
+r2 = r2_score(y_test, y_pred)
+
+
+print("MSE:", mse)
+print("R2 Score:", r2)
+
+
+import numpy as np
+import pandas as pd
+
+
+# 1. Define new movie input (change values as needed to reflect your data)
+new_movie = {
+    'popularity': 45.3,
+    'vote_count': 1000,
+    'original_language_en': 1,
+    'original_language_fr': 0,
+    'original_language_hi': 0,
+    'original_language_ja': 0,
+    'original_language_ko': 0,
+    'original_language_ru': 0,
+    'original_language_te': 0,
+    'original_language_tr': 0,
+    'original_language_zh': 0
+    # Add or adjust fields based on your actual one-hot encoded columns
+}
+
+
+# 2. Convert to DataFrame
+new_df = pd.DataFrame([new_movie])
+
+
+# 3. Reindex to match model input columns (very important)
+new_df = new_df.reindex(columns=df_encoded.drop('vote_average', axis=1).columns, fill_value=0)
+
+
+# 4. Scale input using same scaler used during training
+new_input_scaled = scaler.transform(new_df)
+
+
+# 5. Predict using trained model
+predicted_rating = model.predict(new_input_scaled)
+
+
+# 6. Output prediction
+print("Predicted vote_average:", predicted_rating[0])
+
+
+# Predict the vote_average using the trained model
+predicted_rating = model.predict(new_input_scaled)
+
+
+# Print the result
+print("🎬 Predicted Vote Average (Rating):", round(predicted_rating[0], 2))
+
+
+# Install ipywidgets if not already installed
+!pip install ipywidgets
+
+
+import pandas as pd
+import ast
+import ipywidgets as widgets
+from IPython.display import display, HTML, clear_output
+
+
+# ✅ Convert genre_ids string to list (if necessary)
+df['genre_ids'] = df['genre_ids'].apply(lambda x: ast.literal_eval(x) if isinstance(x, str) else x)
+
+
+# ✅ Genre mapping
+genre_map = {
+    28: "Action",
+    12: "Adventure",
+    14: "Fantasy",
+    16: "Animation",
+    18: "Drama",
+    27: "Horror",
+    35: "Comedy",
+    53: "Thriller",
+    10751: "Family",
+    878: "Science Fiction"
+}
+
+
+reverse_map = {v: k for k, v in genre_map.items()}
+
+
+# ✅ Create UI widgets
+genre_dropdown = widgets.Dropdown(
+    options=sorted(genre_map.values()),
+    description="🎬 Genre:"
+)
+
+
+rating_slider = widgets.FloatSlider(
+    value=7.0, min=0.0, max=10.0, step=0.1, description="⭐ Min Rating:"
+)
+
+
+recommend_button = widgets.Button(
+    description="🎯 Show Recommendations",
+    button_style="success"
+)
+
+
+output_area = widgets.Output()
+
+
+# ✅ Function to recommend movies
+def recommend_movies(b):
+    selected_genre_name = genre_dropdown.value
+    selected_genre_id = reverse_map[selected_genre_name]
+    min_rating = rating_slider.value
+
+
+    with output_area:
+        clear_output()
+        display(HTML("<h3 style='color:#2E86C1;'>🎥 Top Movie Recommendations</h3>"))
+
+
+        filtered_df = df[
+            df['genre_ids'].apply(lambda genres: selected_genre_id in genres) &
+            (df['vote_average'] >= min_rating)
+        ]
+
+
+        if filtered_df.empty:
+            print("❌ No movies match the selected filters.")
+        else:
+            display(filtered_df[['title', 'vote_average']].sort_values(by='vote_average', ascending=False).head(5))
+
+
+recommend_button.on_click(recommend_movies)
+
+
+# ✅ Display UI
+display(HTML("<h2 style='color:#1ABC9C;'>🎬 Movie Recommender System</h2>"))
+display(HTML("<p><strong>Select a genre and minimum rating to get personalized movie suggestions:</strong></p>"))
+display(genre_dropdown)
+display(rating_slider)
+display(recommend_button)
+display(output_area)
 
